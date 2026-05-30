@@ -81,12 +81,13 @@ class AppleSiliconBackend(VoiceBackend):
     def _synthesize_sync(self, text: str, voice: str) -> tuple[np.ndarray, int]:
         piper_voice = self._get_voice(voice)
         sample_rate = piper_voice.config.sample_rate  # type: ignore[attr-defined]
-        chunks = bytearray()
-        for raw in piper_voice.synthesize_stream_raw(text):  # int16 PCM mono
-            chunks.extend(raw)
-        pcm = np.frombuffer(bytes(chunks), dtype=np.int16)
-        samples = pcm.astype(np.float32) / 32768.0
-        return samples, sample_rate
+        parts: list[np.ndarray] = []
+        for chunk in piper_voice.synthesize(text):  # un AudioChunk por frase
+            parts.append(chunk.audio_float_array)  # float32 mono en [-1, 1]
+            sample_rate = chunk.sample_rate
+        if not parts:
+            return np.zeros(0, dtype=np.float32), sample_rate
+        return np.concatenate(parts).astype(np.float32), sample_rate
 
     async def synthesize(self, text: str, voice: str) -> tuple[np.ndarray, int]:
         return await self.run_blocking(self._synthesize_sync, text, voice)
