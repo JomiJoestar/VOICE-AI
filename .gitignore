@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.Python
+
+# Entorno / secretos
+.env
+*.local
+
+# Datos y modelos descargados
+data/*.db
+data/*.sqlite
+models/whisper/*
+models/piper/*
+!models/whisper/.gitkeep
+!models/piper/.gitkeep
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

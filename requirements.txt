@@ -1,0 +1,21 @@
+# ─── Núcleo compartido (todas las plataformas) ───────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+websockets==14.1
+pydantic==2.10.4
+pyyaml==6.0.2
+python-dotenv==1.0.1
+openai==1.59.5            # cliente compatible con DeepSeek (deepseek-chat)
+numpy==2.2.1
+sounddevice==0.5.1        # captura/reproducción de audio nativa
+soundfile==0.13.0
+pywebview==5.3.2          # ventana de escritorio ligera
+
+# ─── VAD (detección de voz, común a todas las plataformas) ───────────────
+# silero-vad se descarga vía torch.hub en backend/voice/vad.py
+torch==2.5.1
+
+# ─── STT / TTS específicos por plataforma ────────────────────────────────
+# NO se instalan aquí. Cada plataforma instala lo suyo:
+#   macOS (Apple Silicon):  pip install -r requirements-mac.txt
+#   NVIDIA/AMD:             pip install -r requirements-cuda.txt

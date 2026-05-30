@@ -1,0 +1,7 @@
+# Dependencias de voz para macOS / Apple Silicon (rama: mac)
+# Instalar DESPUÉS de requirements.txt:
+#   pip install -r requirements.txt -r requirements-mac.txt
+
+mlx-whisper==0.4.2        # STT acelerado por Metal / Neural Engine (Apple Silicon)
+piper-tts==1.2.0          # TTS local
+onnxruntime==1.20.1       # backend de Piper (usa CoreML EP en Apple Silicon)

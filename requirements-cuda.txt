@@ -1,0 +1,11 @@
+# Dependencias de voz para NVIDIA / AMD (rama: nvidia-amd)
+# Esta rama la mantiene el equipo de GPU. Referencia inicial:
+#   pip install -r requirements.txt -r requirements-cuda.txt
+#
+# NVIDIA (CUDA):
+faster-whisper==1.1.0     # STT sobre CUDA
+piper-tts==1.2.0          # TTS local
+onnxruntime-gpu==1.20.1   # backend de Piper con CUDA Execution Provider
+#
+# AMD (ROCm): sustituir onnxruntime-gpu por la build ROCm correspondiente
+# y usar whisper.cpp/ctranslate2 con soporte ROCm según disponibilidad.

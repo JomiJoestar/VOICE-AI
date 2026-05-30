@@ -1,0 +1,73 @@
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  VOICE AI — configuración principal                                    ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+
+app:
+  name: "VOICE AI"
+  host: "127.0.0.1"
+  port: 8000
+  language: "es"            # solo español por ahora
+
+# ─── Selección de backend de cómputo de voz ──────────────────────────────
+# apple_silicon | cuda | rocm | cpu
+# Se resuelve en runtime; cada equipo usa el suyo sin tocar el resto.
+compute:
+  backend: "apple_silicon"
+
+# ─── Speech-to-Text ───────────────────────────────────────────────────────
+stt:
+  # tiny | base | small | medium | large-v3
+  # En Apple Silicon, "small" da el mejor balance latencia/precisión en español.
+  model: "small"
+  language: "es"
+
+# ─── Detección de actividad de voz (manos libres) ─────────────────────────
+vad:
+  enabled: true
+  threshold: 0.5           # 0..1 — sensibilidad de silero-vad
+  min_silence_ms: 700      # silencio que cierra un turno
+  speech_pad_ms: 200
+
+# ─── Modo de entrada de voz por defecto ───────────────────────────────────
+# El usuario puede cambiarlo en vivo desde la UI.
+input:
+  mode: "push_to_talk"     # push_to_talk | hands_free
+  sample_rate: 16000
+  channels: 1
+
+# ─── LLM (DeepSeek) ───────────────────────────────────────────────────────
+llm:
+  model: "deepseek-chat"
+  temperature: 0.8
+  max_tokens: 512
+  stream: true
+
+# ─── Colas / control de la API ────────────────────────────────────────────
+queue:
+  max_concurrent_requests: 2     # llamadas simultáneas a DeepSeek
+  requests_per_minute: 50        # rate limit (token bucket)
+  max_retries: 3
+  backoff_base_seconds: 1.0
+
+# ─── Gestión de contexto por agente ───────────────────────────────────────
+context:
+  max_tokens: 3000               # presupuesto antes de resumir
+  keep_last_turns: 8             # turnos recientes que nunca se resumen
+
+# ─── Agentes ──────────────────────────────────────────────────────────────
+# Cada agente tiene su propia voz y volumen. Las voces Piper deben existir en
+# models/piper/. El usuario debe oír el diálogo entre ambos en tiempo real.
+agents:
+  orquestador:
+    role: "leader"
+    voice: "models/piper/es_ES-davefx-medium.onnx"
+    volume: 1.0
+  especialista:
+    role: "worker"
+    voice: "models/piper/es_ES-sharvard-medium.onnx"
+    volume: 1.0
+
+# Si está activo, las órdenes y respuestas ENTRE las IAs se reproducen en voz
+# alta (el usuario oye cómo se coordinan). Si se desactiva, la coordinación
+# interna es solo texto en pantalla.
+audible_inter_agent: true
