@@ -20,6 +20,7 @@ from ..core.events import (
     MessageKind,
     Speaker,
     ev_agent_message,
+    ev_error,
     ev_state,
     ev_token,
     ev_transcript,
@@ -85,6 +86,11 @@ class ConversationEngine:
             # --- 2) delegación al especialista -------------------------------
             await self._run_delegation(result)
             await self._seq.join()
+        except Exception as exc:  # noqa: BLE001 — nunca dejar la app inutilizable
+            logger.exception("Error procesando el turno")
+            await self._bus.publish(
+                ev_error(f"Hubo un problema al responder ({exc}). Puedes seguir.")
+            )
         finally:
             self._busy = False
             await self._bus.publish(ev_state(processing=False, listening=True))
@@ -94,15 +100,6 @@ class ConversationEngine:
         args = tc.parsed_args()
         instruccion = (args.get("instruccion") or "").strip()
         contexto = (args.get("contexto") or "").strip()
-
-        # Registra la llamada a herramienta en el historial del orquestador.
-        self._orq.add_assistant_tool_call(
-            {
-                "id": tc.id,
-                "type": "function",
-                "function": {"name": tc.name, "arguments": tc.arguments or "{}"},
-            }
-        )
 
         # La ORDEN del líder al especialista — el usuario la oye (si audible).
         await self._publish_message(
@@ -127,11 +124,29 @@ class ConversationEngine:
             Speaker.ESPECIALISTA, especialista_text, MessageKind.DELEGATION_RESULT
         )
 
-        # El líder recibe el resultado e integra la respuesta final.
-        self._orq.add_tool_result(tc.id, especialista_text)
-        messages = await self._orq.build_messages()
+        # El líder integra la respuesta final. Construimos el contexto para esta
+        # llamada SIN persistir el andamiaje tool_call/tool en el historial: si se
+        # guardara, el resumen automático podría partir el par y DeepSeek devolvería
+        # error 400 en todos los turnos siguientes. El historial queda limpio
+        # (user -> assistant final), inmune al resumen.
+        base = await self._orq.build_messages()
+        follow_up = [
+            *base,
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {"name": tc.name, "arguments": tc.arguments or "{}"},
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": tc.id, "content": especialista_text},
+        ]
         _, final_text = await self._stream_turn(
-            Speaker.ORQUESTADOR, messages, MessageKind.FINAL, tools=None
+            Speaker.ORQUESTADOR, follow_up, MessageKind.FINAL, tools=None
         )
         if final_text.strip():
             self._orq.add_assistant(final_text.strip())

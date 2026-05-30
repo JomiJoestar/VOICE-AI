@@ -34,7 +34,7 @@ export default function MicControl({
   return (
     <div className="controls">
       <div className="mode-row">
-        <div className="mode-toggle">
+        <div className="segmented">
           <button
             className={mode === "push_to_talk" ? "active" : ""}
             onClick={() => setMode("push_to_talk")}
@@ -45,7 +45,7 @@ export default function MicControl({
             className={mode === "hands_free" ? "active" : ""}
             onClick={() => setMode("hands_free")}
             disabled={!vadReady}
-            title={vadReady ? "" : "VAD no disponible"}
+            title={vadReady ? "" : "Manos libres no disponible"}
           >
             Manos libres
           </button>
@@ -53,43 +53,64 @@ export default function MicControl({
         <button
           className="interrupt"
           onClick={() => send({ type: "interrupt" })}
-          title="Interrumpir voz actual"
+          title="Interrumpir la voz actual"
         >
-          ⏹ Interrumpir
+          ⏹
         </button>
       </div>
 
-      {mode === "push_to_talk" ? (
-        <button
-          className={`ptt ${holding ? "rec" : ""}`}
-          onMouseDown={startPtt}
-          onMouseUp={stopPtt}
-          onMouseLeave={stopPtt}
-          onTouchStart={startPtt}
-          onTouchEnd={stopPtt}
-          disabled={!voiceReady}
-        >
-          {!voiceReady
-            ? "Voz no disponible"
-            : holding
-            ? "🎙️ Grabando… suelta para enviar"
-            : "🎙️ Mantén pulsado para hablar"}
-        </button>
-      ) : (
-        <div className={`hands-free-status ${processing ? "busy" : "listening"}`}>
-          {processing ? "Procesando…" : "Escuchando… habla cuando quieras"}
+      <div className="input-row">
+        {mode === "push_to_talk" ? (
+          <button
+            className={`mic ${holding ? "rec" : ""}`}
+            onMouseDown={startPtt}
+            onMouseUp={stopPtt}
+            onMouseLeave={stopPtt}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              startPtt();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              stopPtt();
+            }}
+            disabled={!voiceReady}
+            title={voiceReady ? "Mantén pulsado para hablar" : "Voz no disponible"}
+          >
+            {holding && <span className="mic-ripple" />}
+            <span className="mic-glyph">🎙️</span>
+          </button>
+        ) : (
+          <div className={`hands-free ${processing ? "busy" : "listening"}`}>
+            <span className="hf-wave" aria-hidden>
+              <i /><i /><i /><i /><i />
+            </span>
+            {processing ? "Procesando…" : "Escuchando — habla cuando quieras"}
+          </div>
+        )}
+
+        <form className="text-input" onSubmit={submit}>
+          <input
+            type="text"
+            placeholder={
+              mode === "push_to_talk"
+                ? "Mantén el micro o escribe aquí…"
+                : "…o escribe tu mensaje"
+            }
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <button type="submit" disabled={!text.trim()}>
+            ➤
+          </button>
+        </form>
+      </div>
+
+      {mode === "push_to_talk" && (
+        <div className="mic-hint">
+          {holding ? "Grabando… suelta para enviar" : "Mantén pulsado el micrófono para hablar"}
         </div>
       )}
-
-      <form className="text-input" onSubmit={submit}>
-        <input
-          type="text"
-          placeholder="…o escribe tu mensaje"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <button type="submit">Enviar</button>
-      </form>
     </div>
   );
 }

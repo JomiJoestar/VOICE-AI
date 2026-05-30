@@ -43,9 +43,17 @@ class ContextManager:
         if _approx_tokens(history) <= self._max_tokens:
             return history
 
-        # Conserva los últimos turnos; resume el resto.
-        keep = history[-self._keep_last_turns :]
-        to_summarize = history[: -self._keep_last_turns]
+        # Conserva los últimos turnos; resume el resto. El punto de corte se mueve
+        # hacia delante hasta un mensaje "seguro": nunca debe empezar en un mensaje
+        # 'tool' ni en un assistant con tool_calls (quedaría huérfano y la API
+        # devolvería error 400).
+        split = max(0, len(history) - self._keep_last_turns)
+        while split < len(history) and (
+            history[split].get("role") == "tool" or history[split].get("tool_calls")
+        ):
+            split += 1
+        to_summarize = history[:split]
+        keep = history[split:]
         if not to_summarize:
             return history
 

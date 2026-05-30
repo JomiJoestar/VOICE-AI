@@ -14,42 +14,59 @@ export default function App() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const liveRef = useRef({});
+  const speakOffTimer = useRef(null);
 
-  const onEvent = useCallback((ev) => {
-    switch (ev.type) {
-      case "status":
-        setStatus(ev);
-        break;
-      case "history":
-        setMessages(ev.messages || []);
-        break;
-      case "agent_message": {
-        const { type, ...msg } = ev;
-        setMessages((m) => [...m, msg]);
-        liveRef.current = { ...liveRef.current, [ev.speaker]: "" };
-        setLive({ ...liveRef.current });
-        break;
-      }
-      case "token": {
-        const prev = liveRef.current[ev.speaker] || "";
-        liveRef.current = { ...liveRef.current, [ev.speaker]: prev + ev.text };
-        setLive({ ...liveRef.current });
-        break;
-      }
-      case "speaking":
-        setSpeaking(ev.active ? ev.speaker : (s) => (s === ev.speaker ? null : s));
-        break;
-      case "state":
-        if ("processing" in ev) setProcessing(ev.processing);
-        break;
-      case "error":
-        setError(ev.message);
-        setTimeout(() => setError(null), 5000);
-        break;
-      default:
-        break;
+  // Suaviza el parpadeo del indicador: no apaga "hablando" al instante.
+  const setSpeakingSmooth = useCallback((speaker, active) => {
+    if (active) {
+      clearTimeout(speakOffTimer.current);
+      setSpeaking(speaker);
+    } else {
+      clearTimeout(speakOffTimer.current);
+      speakOffTimer.current = setTimeout(() => {
+        setSpeaking((cur) => (cur === speaker ? null : cur));
+      }, 450);
     }
   }, []);
+
+  const onEvent = useCallback(
+    (ev) => {
+      switch (ev.type) {
+        case "status":
+          setStatus(ev);
+          break;
+        case "history":
+          setMessages(ev.messages || []);
+          break;
+        case "agent_message": {
+          const { type, ...msg } = ev;
+          setMessages((m) => [...m, msg]);
+          liveRef.current = { ...liveRef.current, [ev.speaker]: "" };
+          setLive({ ...liveRef.current });
+          break;
+        }
+        case "token": {
+          const prev = liveRef.current[ev.speaker] || "";
+          liveRef.current = { ...liveRef.current, [ev.speaker]: prev + ev.text };
+          setLive({ ...liveRef.current });
+          break;
+        }
+        case "speaking":
+          setSpeakingSmooth(ev.speaker, ev.active);
+          break;
+        case "state":
+          if ("processing" in ev) setProcessing(ev.processing);
+          break;
+        case "error":
+          setError(ev.message);
+          setTimeout(() => setError(null), 6000);
+          break;
+        default:
+          break;
+      }
+    },
+    [setSpeakingSmooth]
+  );
 
   const { connected, send } = useSocket(onEvent);
 
@@ -65,17 +82,26 @@ export default function App() {
 
   return (
     <div className="app">
+      <div className="aurora" aria-hidden />
       <header className="topbar">
-        <h1>VOICE&nbsp;AI</h1>
+        <div className="brand">
+          <span className="brand-mark">◍</span>
+          <div>
+            <h1>VOICE&nbsp;AI</h1>
+            <p className="brand-sub">agentes conversacionales por voz</p>
+          </div>
+        </div>
         <div className="badges">
-          <Badge ok={connected} label={connected ? "conectado" : "sin conexión"} />
+          <Badge ok={connected} label={connected ? "conectado" : "reconectando…"} pulse />
           <Badge ok={status.llm_ready} label="LLM" />
           <Badge ok={status.voice_ready} label="voz" />
+          <Badge ok={status.vad_ready} label="manos libres" />
         </div>
       </header>
 
       <div className="layout">
         <aside className="sidebar">
+          <div className="sidebar-title">Agentes</div>
           {AGENTS.map((a) => (
             <AgentPanel
               key={a}
@@ -86,14 +112,20 @@ export default function App() {
             />
           ))}
           <div className="hint">
+            <span className="hint-icon">{status.audible_inter_agent ? "🔊" : "💬"}</span>
             {status.audible_inter_agent
-              ? "Oirás cómo las IAs se coordinan en voz alta."
+              ? "Oirás cómo Aura y Tobías se coordinan en voz alta."
               : "Coordinación interna en modo texto."}
           </div>
         </aside>
 
         <main className="main">
-          <ChatTimeline messages={messages} live={live} processing={processing} />
+          <ChatTimeline
+            messages={messages}
+            live={live}
+            processing={processing}
+            speaking={speaking}
+          />
           <MicControl
             send={send}
             mode={status.input_mode}
@@ -106,11 +138,20 @@ export default function App() {
         </main>
       </div>
 
-      {error && <div className="toast error">{error}</div>}
+      {error && (
+        <div className="toast error">
+          <span>⚠️</span> {error}
+        </div>
+      )}
     </div>
   );
 }
 
-function Badge({ ok, label }) {
-  return <span className={`badge ${ok ? "on" : "off"}`}>{label}</span>;
+function Badge({ ok, label, pulse }) {
+  return (
+    <span className={`badge ${ok ? "on" : "off"}`}>
+      <span className={`badge-dot ${pulse && ok ? "pulse" : ""}`} />
+      {label}
+    </span>
+  );
 }
